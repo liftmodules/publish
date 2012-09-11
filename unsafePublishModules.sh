@@ -4,7 +4,6 @@
 #to publish all Lift modules to sonatype e.g., as part of a Lift
 #a release version (including Milestones and RCs)
 
-
 ## This scripts runs on mac's bash terminal
 
 set -o errexit
@@ -12,6 +11,8 @@ set -o nounset
 
 BUILDLOG=/tmp/Liftmodules-do-release-`date "+%Y%m%d-%H%M%S"`.log
 date > $BUILDLOG
+
+PUSH_SCRIPT=/tmp/LiftModules-push-`date "+%Y%m%d-%H%M%S"`.sh
 
 SBT_OPTS="-Dfile.encoding=utf8 -Dsbt.log.noformat=true -XX:MaxPermSize=256m -Xmx512M -Xss2M -XX:+CMSClassUnloadingEnabled"
 
@@ -24,7 +25,7 @@ SBT_OPTS="-Dfile.encoding=utf8 -Dsbt.log.noformat=true -XX:MaxPermSize=256m -Xmx
 #  3. Create a branch based on the Lift version number and the module version number
 #  4. Modify the Lift and module version numbers in the module's build.sbt
 #  5. Try to build, fail on error.
-#  6. Commit + push the change. Tag.
+#  6. Commit the change, log the push command to run.
 #  7. +publish
 #  
 
@@ -111,6 +112,8 @@ function updateBuild {
     LIFT_VER=$1
     MOD_VER=$2
 
+    # TODO: Replace with SBT session saving
+
     sed -i.bak "s/liftVersion ?? \"[^\"]*\"/liftVersion ?? \"$LIFT_VER\"/g" build.sbt
     if [ $? -ne 0 ] ; then 
         REASON="Failed to update Lift version" 
@@ -125,6 +128,13 @@ function updateBuild {
     fi
     rm build.sbt.bak
 
+    sed -i.bak "s/^crossScalaVersions.*$/crossScalaVersions := Seq(\"2.9.2\", \"2.9.1-1\", \"2.9.1\")/g" build.sbt
+    if [ $? -ne 0 ] ; then 
+        REASON="Failed to update Module crossbuilds" 
+        return 1
+    fi
+    rm build.sbt.bak
+
     return 0
 
 }
@@ -134,12 +144,12 @@ function updateBuild {
 ##### End Utility Functions #####
 
 
-echo -e "\n*********************************************************************"
+echo "\n*********************************************************************"
 printf    "* Lift Module Release build script version %-24s *\n" "$SCRIPTVERSION"
 printf    "*********************************************************************\n\n"
 
-echo -e "SCRIPT_DIR is ${SCRIPT_DIR}"
-echo -e "Build output logged to $BUILDLOG\n"
+echo "SCRIPT_DIR is ${SCRIPT_DIR}"
+echo "Build output logged to $BUILDLOG\n"
 
 # Any Module set up could go here
 # CouchDB will blow up with HTTP proxy set because it doesn't correctly interpret the return codes
@@ -170,7 +180,8 @@ do
 done
 echo "2. A branch will be created for each module and configured for this release"
 echo "3. Each module will be built"
-echo "4. On success, the branch will be pushed and the module published".
+echo "4. On success, the module will be published".
+echo " "
 
 confirm "Are you certain you want a release build?" || die "Canceling release build."
 
@@ -187,9 +198,7 @@ echo "-----------------------------------------------------------------"
 echo "Starting PHASE 1: The clone of the modules, branch, modify build"
 echo "-----------------------------------------------------------------"
 
-#TODO: all modules, not just the first one
-#for m in "${MODULES[@]}"
-for m in "${MODULES}"
+for m in "${MODULES[@]}"
 do
     projname "$m" || die "Odd git project name, cannot work out directory."
     
@@ -219,6 +228,10 @@ echo "-----------------------------------------------------------------"
 echo "Starting PHASE 2: Build and test"
 echo "-----------------------------------------------------------------"
 
+echo " "
+echo "If you want to follow along, tail -f $BUILDLOG"
+echo " "
+
 echo "Phase 2" >> ${BUILDLOG}
 java -version 2>> ${BUILDLOG}
 echo $SBT_OPTS >> ${BUILDLOG}
@@ -246,6 +259,12 @@ echo "-----------------------------------------------------------------"
 echo "Starting PHASE 3: Publish and push"
 echo "-----------------------------------------------------------------"
 
+echo " "
+echo "During this phase you will be asked to enter your PGP passphrase"
+echo "i.e., watch this console and response to prompts."
+echo " "
+
+
 confirm "Modules all appear OK. Proceed to publish step?" || die "Canceling release build!"
 
 for m in "${MODULES[@]}"
@@ -259,21 +278,18 @@ do
 
     readModuleVersion || die "Failed to locate module version number: $REASON"
 
-    set +o errexit
-    java $SBT_OPTS -jar $SBT_JAR +publish >> ${BUILDLOG}
-    if [ $? -ne 0 ] ; then die "Publish failure in $PROJNAME - see $BUILDLOG for details" ; fi
-    set -o errexit
+    java $SBT_OPTS -jar $SBT_JAR +publish 
 
-    #TODO: test this
-    echo "git push origin $RELEASE_VERSION-$MODULE_VERSION"
+    echo "cd $STAGING_DIR/$PROJNAME" >> $PUSH_SCRIPT
+    echo "git push origin $RELEASE_VERSION-$MODULE_VERSION" >> $PUSH_SCRIPT
 
     cd $SCRIPT_DIR
 done
 
-echo "Release complete `date`" >> ${BUILDLOG}
+echo "Release build complete `date`" >> ${BUILDLOG}
 
 echo " "
-echo "RELEASE COMPLETE."
-
+echo "RELEASE BUILD COMPLETE."
+echo "To push branches, see $PUSH_SCRIPT"
 
 

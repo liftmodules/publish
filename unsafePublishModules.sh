@@ -2,7 +2,7 @@
 #It is called unsafe so most people stay away from this
 #But this script MAY TURN OUT TO BE safe to use if you are trying 
 #to publish all Lift modules to sonatype e.g., as part of a Lift
-#a release version (including Milestones and RCs)
+#release version (including Milestones and RCs)
 
 ## This scripts runs on mac's bash terminal
 
@@ -218,6 +218,9 @@ do
 
     git commit -v -a -m "Prepare for Lift ${RELEASE_VERSION} release" >> ${BUILDLOG} || die "Could not commit project version change!"
 
+    git tag ${RELEASE_VERSION}-${MODULE_VERSION}-release >> ${BUILDLOG} || die "Could not tag release!"
+
+
     cd $SCRIPT_DIR
     echo " "
 done
@@ -281,15 +284,18 @@ do
     java $SBT_OPTS -jar $SBT_JAR +publish 
 
     echo "cd $STAGING_DIR/$PROJNAME" >> $PUSH_SCRIPT
-    echo "git push origin $RELEASE_VERSION-$MODULE_VERSION" >> $PUSH_SCRIPT
+    echo "# Uncomment if you want to push the branch too:" >> $PUSH_SCRIPT
+    echo "# git push origin $RELEASE_VERSION-$MODULE_VERSION" >> $PUSH_SCRIPT
+    echo "git push --tags" >> $PUSH_SCRIPT
 
     cd $SCRIPT_DIR
 done
+
 
 echo "Release build complete `date`" >> ${BUILDLOG}
 
 echo " "
 echo "RELEASE BUILD COMPLETE."
-echo "To push branches, see $PUSH_SCRIPT"
+echo "To push tags, see $PUSH_SCRIPT"
 
 

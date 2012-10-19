@@ -1,0 +1,3 @@
+git@github.com:d6y/liftmodules-googleanalytics.git
+git@github.com:d6y/liftmodules-imap-idle.git
+

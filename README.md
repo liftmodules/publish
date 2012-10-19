@@ -1,4 +1,6 @@
-Shell script for publishing all the modules listed in `modules.txt` to Sonatype.
+Shell script for publishing all the modules listed in `modules-step-1.txt` (by default) to Sonatype.
+
+`modules-step-2.txt` contains modules that depend on the publication of modules in step 1.
 
 Requires that you have:
 

@@ -4,6 +4,8 @@
 #to publish all Lift modules to sonatype e.g., as part of a Lift
 #release version (including Milestones and RCs)
 
+# Usage: sh unsafePublishModules.sh [modules-step-1.txt]
+
 ## This scripts runs on mac's bash terminal
 
 set -o errexit
@@ -144,12 +146,24 @@ function updateBuild {
 ##### End Utility Functions #####
 
 
+moduleFile="$SCRIPT_DIR/modules-step-1.txt"
+
+echo $#
+if [ $# -eq 1 ]; then
+    moduleFile=$1
+fi
+
 echo "\n*********************************************************************"
 printf    "* Lift Module Release build script version %-24s *\n" "$SCRIPTVERSION"
 printf    "*********************************************************************\n\n"
 
 echo "SCRIPT_DIR is ${SCRIPT_DIR}"
+echo "Module list file: ${moduleFile}"
 echo "Build output logged to $BUILDLOG\n"
+
+if [ ! -e $moduleFile ] ; then
+  die "Module list file missing: ${moduleFile}"
+fi
 
 # Any Module set up could go here
 # CouchDB will blow up with HTTP proxy set because it doesn't correctly interpret the return codes
@@ -169,7 +183,7 @@ if ! echo $RELEASE_VERSION | egrep -x '[0-9]+\.[0-9]+(-(M|RC)[0-9]+)?' > /dev/nu
 fi
 
 STAGING_DIR="$SCRIPT_DIR/staging"
-MODULES=( `cat "$SCRIPT_DIR/modules.txt" `) 
+MODULES=( `cat "$moduleFile" `) 
 
 
 echo "This is what's about to happen:"

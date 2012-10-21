@@ -1,2 +1,2 @@
-git://github.com/eltimn/lift-mongoauth.git
+git@github.com:eltimn/lift-mongoauth.git
 

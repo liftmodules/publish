@@ -99,7 +99,8 @@ function readModuleVersion {
     
     if [[ "$line" =~ \"-?([^-]+)(-SNAPSHOT)?\" ]]
     then
-        MODULE_VERSION=${BASH_REMATCH[1]}
+        RAW_MOD_VERSION=${BASH_REMATCH[1]}
+        MODULE_VERSION=${RAW_MOD_VERSION//[^0-9.]/}
         return 0
     else
         REASON="Failed to pick out version from: $line"
@@ -148,7 +149,6 @@ function updateBuild {
 
 moduleFile="$SCRIPT_DIR/modules-step-1.txt"
 
-echo $#
 if [ $# -eq 1 ]; then
     moduleFile=$1
 fi
@@ -310,6 +310,7 @@ echo "Release build complete `date`" >> ${BUILDLOG}
 
 echo " "
 echo "RELEASE BUILD COMPLETE."
-echo "To push tags, see $PUSH_SCRIPT"
+echo "Next: 1. Visit https://oss.sonatype.org/index.html to close and release"
+echo "      2.  To push tags, run $PUSH_SCRIPT"
 
 

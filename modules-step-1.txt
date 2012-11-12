@@ -10,4 +10,3 @@ git@github.com:liftmodules/openid.git
 git@github.com:liftmodules/scalate.git
 git@github.com:liftmodules/xmpp.git
 git@github.com:liftmodules/paypal.git
-git@github.com:karma4u101/lift-jquery-module.git

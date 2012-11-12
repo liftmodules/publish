@@ -174,43 +174,15 @@ fi
 #fi
 #set -o nounset
 
-read -p "Please enter the Lift version of the release: " RELEASE_VERSION
 
-# Sanity check on the release version
-if ! echo $RELEASE_VERSION | egrep -x '[0-9]+\.[0-9]+(-(M|RC)[0-9]+)?' > /dev/null; then
-    confirm "$RELEASE_VERSION does not appear to be a valid version. Are you sure?" ||
-      die "Canceling release build!"
-fi
-
-STAGING_DIR="$SCRIPT_DIR/staging"
-MODULES=( `cat "$moduleFile" `) 
-
-
-echo "This is what's about to happen:"
-echo "1. The following modules will be checked out to a staging directory:"
-for m in "${MODULES[@]}"
-do
-    echo "   $m"
-done
-echo "2. A branch will be created for each module and configured for this release"
-echo "3. Each module will be built"
-echo "4. On success, the module will be published".
-echo " "
-
-confirm "Are you certain you want a release build?" || die "Canceling release build."
-
-if [ -e $STAGING_DIR ]; then
-    confirm "$STAGING_DIR exists. Happy to remove it?" || die "Canceling build"
-    rm -rf $STAGING_DIR
-fi
-
-mkdir -v $STAGING_DIR
-if [ $? -ne 0 ] ; then die "Failed to mkdir" ; fi
-
+cloneModules() {
 
 echo "-----------------------------------------------------------------"
 echo "Starting PHASE 1: The clone of the modules, branch, modify build"
 echo "-----------------------------------------------------------------"
+
+mkdir -v $STAGING_DIR
+if [ $? -ne 0 ] ; then die "Failed to mkdir" ; fi
 
 for m in "${MODULES[@]}"
 do
@@ -234,11 +206,14 @@ do
 
     git tag ${RELEASE_VERSION}-${MODULE_VERSION}-release >> ${BUILDLOG} || die "Could not tag release!"
 
-
     cd $SCRIPT_DIR
     echo " "
 done
 
+}
+
+
+buildAndTest() {
 
 echo " "
 echo "-----------------------------------------------------------------"
@@ -270,6 +245,10 @@ do
     cd $SCRIPT_DIR
 done
 
+}
+
+
+publish() {
 
 echo " "
 echo "-----------------------------------------------------------------"
@@ -305,12 +284,58 @@ do
     cd $SCRIPT_DIR
 done
 
-
 echo "Release build complete `date`" >> ${BUILDLOG}
 
 echo " "
 echo "RELEASE BUILD COMPLETE."
 echo "Next: 1. Visit https://oss.sonatype.org/index.html to close and release"
 echo "      2.  To push tags, run $PUSH_SCRIPT"
+
+}
+
+
+# -- MAIN -------------------------------------------------------------------------------
+
+
+read -p "Please enter the Lift version of the release: " RELEASE_VERSION
+
+# Sanity check on the release version
+if ! echo $RELEASE_VERSION | egrep -x '[0-9]+\.[0-9]+(-(M|RC)[0-9]+)?' > /dev/null; then
+    confirm "$RELEASE_VERSION does not appear to be a valid version. Are you sure?" ||
+      die "Canceling release build!"
+fi
+
+STAGING_DIR="$SCRIPT_DIR/staging"
+MODULES=( `cat "$moduleFile" `) 
+
+
+echo "This is what's about to happen:"
+echo "1. The following modules will be checked out to a staging directory:"
+for m in "${MODULES[@]}"
+do
+    echo "   $m"
+done
+echo "2. A branch will be created for each module and configured for this release"
+echo "3. Each module will be built"
+echo "4. On success, the module will be published".
+echo " "
+
+confirm "Are you certain you want a release build?" || die "Canceling release build."
+
+if [ -e $STAGING_DIR ]; then
+    set +o errexit
+    confirm "$STAGING_DIR exists. Happy to remove it? (no to use existing directory to publish)" 
+    freshBuild=$?
+    set -o errexit
+    if [ $freshBuild -eq 0 ]; then
+      rm -rf $STAGING_DIR
+      cloneModules
+      buildAndTest
+    fi
+fi
+
+echo "and..."
+
+publish
 
 

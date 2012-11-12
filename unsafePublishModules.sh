@@ -175,6 +175,13 @@ fi
 #set -o nounset
 
 
+if [ ! -e $HOME/.sbt/plugins/gpg.sbt ]; then
+    echo "WARNING: $HOME/.sbt/plugins/gpg.sbt not found"
+    echo "The GPG plugin is required to publish to Sonatype, see:"
+    echo "https://www.assembla.com/spaces/liftweb/wiki/Releasing_the_modules"
+    echo " "
+fi
+
 cloneModules() {
 
 echo "-----------------------------------------------------------------"

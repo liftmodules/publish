@@ -1,4 +1,5 @@
 git@github.com:liftmodules/oauth.git
+git@github.com:liftmodules/couchdb.git
 git@github.com:liftmodules/textile.git
 git@github.com:liftmodules/widgets.git
 git@github.com:liftmodules/amqp.git
@@ -10,3 +11,4 @@ git@github.com:liftmodules/openid.git
 git@github.com:liftmodules/scalate.git
 git@github.com:liftmodules/xmpp.git
 git@github.com:liftmodules/paypal.git
+

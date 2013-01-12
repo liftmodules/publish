@@ -132,7 +132,7 @@ function updateBuild {
     fi
     rm build.sbt.bak
 
-    sed -i.bak "s/^crossScalaVersions.*$/crossScalaVersions := Seq(\"2.9.2\", \"2.9.1-1\", \"2.9.1\")/g" build.sbt
+    sed -i.bak "s/^crossScalaVersions.*$/crossScalaVersions := Seq(\"2.10.0\", \"2.9.2\", \"2.9.1-1\", \"2.9.1\")/g" build.sbt
     if [ $? -ne 0 ] ; then 
         REASON="Failed to update Module crossbuilds" 
         return 1

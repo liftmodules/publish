@@ -36,6 +36,8 @@ SCRIPTVERSION=2.0
 SCRIPT_NAME="${PWD##*/}"
 SCRIPT_DIR="${PWD}"
 
+SBT_JAR="$SCRIPT_DIR/sbt-launch-0.12.jar"
+
 # if the script was started from the base directory, then the
 # expansion returns a period
 if test "$SCRIPT_DIR" == "." ; then
@@ -47,7 +49,6 @@ elif test "${SCRIPT_DIR:0:1}" != "/" ; then
 fi
 
 
-SBT_JAR="$SCRIPT_DIR/sbt-launch.jar"
 
 
 ##### Utility functions (break these out into an include?) #####
@@ -153,7 +154,7 @@ if [ $# -eq 1 ]; then
     moduleFile=$1
 fi
 
-echo "\n*********************************************************************"
+echo "*********************************************************************"
 printf    "* Lift Module Release build script version %-24s *\n" "$SCRIPTVERSION"
 printf    "*********************************************************************\n\n"
 
@@ -339,6 +340,10 @@ if [ -e $STAGING_DIR ]; then
       cloneModules
       buildAndTest
     fi
+else
+    # No staging directory
+    cloneModules
+    buildAndTest    
 fi
 
 echo "and..."

@@ -1,3 +1,4 @@
 git@github.com:d6y/liftmodules-googleanalytics.git
 git@github.com:d6y/liftmodules-imap-idle.git
-
+git@github.com:SpiralArm/liftmodules-googlemaps.git
+git@github.com:SpiralArm/liftmodules-aws-sns.git

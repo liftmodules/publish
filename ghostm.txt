@@ -1,1 +1,1 @@
-git@github.com:ghostm/lift-omniauth.git
+git@github.com:ghostm/lift-omniauth.git,0.7

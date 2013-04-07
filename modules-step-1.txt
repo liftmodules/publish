@@ -1,1 +1,1 @@
-git@github.com:liftmodules/oauth.git
+git@github.com:liftmodules/oauth.git,1.2

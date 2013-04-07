@@ -1,10 +1,10 @@
 #!/bin/bash
 #It is called unsafe so most people stay away from this
 #But this script MAY TURN OUT TO BE safe to use if you are trying
-#to publish all Lift modules to sonatype e.g., as part of a Lift
-#release version (including Milestones and RCs)
+#to publish all Lift modules to sonatype
 
 # Usage: sh unsafePublishModules.sh [modules-step-1.txt]
+# ...then follow the prompts.
 
 ## This scripts runs on mac's bash terminal
 
@@ -16,8 +16,7 @@ date > $BUILDLOG
 
 PUSH_SCRIPT=/tmp/LiftModules-push-`date "+%Y%m%d-%H%M%S"`.sh
 
-SBT_OPTS="-Dfile.encoding=utf8 -Dsbt.log.noformat=true -XX:MaxPermSize=256m -Xmx512M -Xss2M -XX:+CMSClassUnloadingEnabled"
-
+SBT_OPTS="-Dsbt.log.noformat=true -Dfile.encoding=utf8 -XX:MaxPermSize=384m -Xmx768M -Xss2M -XX:+CMSClassUnloadingEnabled"
 
 # This script is an attempt to automate the Lift Module release process
 # based on the Lift script.  The process is:
@@ -31,12 +30,16 @@ SBT_OPTS="-Dfile.encoding=utf8 -Dsbt.log.noformat=true -XX:MaxPermSize=256m -Xmx
 #  7. +publish
 #
 
-SCRIPTVERSION=2.1
+SCRIPTVERSION=3.0
 
 SCRIPT_NAME="${PWD##*/}"
 SCRIPT_DIR="${PWD}"
 
 SBT_JAR="$SCRIPT_DIR/sbt-launch-0.12.jar"
+
+# There may be a better way to scope the change to IFS that happens in this script
+# but for now, I'm saving the default value and restoring it after each change.
+DEFAULT_IFS=$IFS
 
 # if the script was started from the base directory, then the
 # expansion returns a period
@@ -47,8 +50,6 @@ if test "$SCRIPT_DIR" == "." ; then
 elif test "${SCRIPT_DIR:0:1}" != "/" ; then
   SCRIPT_DIR="$PWD/$SCRIPT_DIR"
 fi
-
-
 
 
 ##### Utility functions (break these out into an include?) #####
@@ -111,14 +112,12 @@ function liftSeries {
 }
 
 
-
 # Look in the current build.sbt for:
-# version <<= liftVersion apply { _ + "-1.1-SNAPSHOT" }
+# version := "1.2-SNAPSHOT"
 # and return the version number (less any snapshot) in $MODULE_VERSION
 function readModuleVersion {
     REASON=""
-    # e.g., version <<= liftVersion apply { _ + "-1.1-SNAPSHOT" }
-    line=`grep 'liftVersion apply' build.sbt`
+    line=`grep 'version :=' build.sbt`
     if [ $? -ne 0 ] ; then die "Unable to find version in build.sbt" ; fi
 
     if [[ "$line" =~ \"-?([^-]+)(-SNAPSHOT)?\" ]]
@@ -148,7 +147,7 @@ function updateBuild {
     fi
     rm build.sbt.bak
 
-    sed -i.bak "s/^version <<=.*$/version <<= liftVersion apply { _ + \"-$MOD_VER\" }/g" build.sbt
+    sed -i.bak "s/^version := .*$/version := \"$MOD_VER\"/g" build.sbt
     if [ $? -ne 0 ] ; then
         REASON="Failed to update Module version"
         return 1
@@ -226,9 +225,15 @@ echo "-----------------------------------------------------------------"
 mkdir -v $STAGING_DIR
 if [ $? -ne 0 ] ; then die "Failed to mkdir" ; fi
 
-for m in "${MODULES[@]}"
+for ml in "${MODULES[@]}"
 do
-    projname "$m" || die "Odd git project name, cannot work out directory."
+    # Split the line on a comma and the first value is the repo:
+    IFS=, MODULE_INFO=( $ml )
+    IFS=$DEFAULT_IFS
+    m=${MODULE_INFO[0]}
+
+
+    projname "$m" || die "Odd git project name: cannot figure out directory name. Help."
 
     echo "Cloning $m -> $PROJNAME"
     cd $STAGING_DIR
@@ -237,7 +242,12 @@ do
 
     cd $PROJNAME
     readModuleVersion || die "Failed to locate module version number: $REASON"
-    echo "Version of $PROJNAME is $MODULE_VERSION"
+    echo "Version of $PROJNAME in Git: $MODULE_VERSION"
+
+    if [ ${#MODULE_INFO[@]} -ne 1 ] ; then
+        MODULE_VERSION=${MODULE_INFO[1]}
+        echo "Requested $PROJNAME version: $MODULE_VERSION"
+    fi
 
     if isSnapshot $RELEASE_VERSION ; then
         echo "Forcing to SNAPSHOT build because Lift version is a SNAPSHOT: $MODULE_VERSION-SNAPSHOT"
@@ -250,7 +260,7 @@ do
 
         git commit -v -a -m "Prepare for Lift ${RELEASE_VERSION} release" >> ${BUILDLOG} || die "Could not commit project version change!"
 
-        git tag ${RELEASE_VERSION}-${MODULE_VERSION}-release >> ${BUILDLOG} || die "Could not tag release!"
+        git tag ${RELEASE_VERSION}-${MODULE_VERSION}-release >> ${BUILDLOG} || echo "WARNING: Could not tag release!"
     fi
 
     cd $SCRIPT_DIR
@@ -273,10 +283,12 @@ echo " "
 
 echo "Phase 2" >> ${BUILDLOG}
 java -version 2>> ${BUILDLOG}
-echo $SBT_OPTS >> ${BUILDLOG}
 
-for m in "${MODULES[@]}"
+for ml in "${MODULES[@]}"
 do
+    IFS=, MODULE_INFO=( $ml )
+    IFS=$DEFAULT_IFS
+    m=${MODULE_INFO[0]}
     projname "$m" || die "Odd git project name, cannot work out directory this time."
 
     cd $STAGING_DIR
@@ -285,6 +297,8 @@ do
     echo "$PROJNAME: packaging and testing"
 
     set +o errexit
+    pwd >> ${BUILDLOG}
+    echo "java $SBT_OPTS -jar $SBT_JAR +package +test" >> ${BUILDLOG}
     java $SBT_OPTS -jar $SBT_JAR +package +test >> ${BUILDLOG}
     if [ $? -ne 0 ] ; then die "Build or test failure in $PROJNAME - see $BUILDLOG for details" ; fi
     set -o errexit
@@ -310,8 +324,11 @@ echo " "
 
 confirm "Modules all appear OK. Proceed to publish step?" || die "Canceling release build!"
 
-for m in "${MODULES[@]}"
+for ml in "${MODULES[@]}"
 do
+    IFS=, MODULE_INFO=( $ml )
+    IFS=$DEFAULT_IFS
+    m=${MODULE_INFO[0]}
     projname "$m" || die "Worked twice, but now cannot work out directory."
 
     cd $STAGING_DIR
@@ -319,13 +336,9 @@ do
 
     echo "$PROJNAME: publishing..."
 
-    readModuleVersion || die "Failed to locate module version number: $REASON"
-
     java $SBT_OPTS -jar $SBT_JAR +publish
 
     echo "cd $STAGING_DIR/$PROJNAME" >> $PUSH_SCRIPT
-    echo "# Uncomment if you want to push the branch too:" >> $PUSH_SCRIPT
-    echo "# git push origin $RELEASE_VERSION-$MODULE_VERSION" >> $PUSH_SCRIPT
     echo "git push --tags" >> $PUSH_SCRIPT
 
     cd $SCRIPT_DIR
@@ -338,7 +351,7 @@ echo "RELEASE BUILD COMPLETE."
 
 if isNotSnapshot $RELEASE_VERSION ; then
     echo "Next: 1. Visit https://oss.sonatype.org/index.html to close and release"
-    echo "      2.  To push tags, run $PUSH_SCRIPT"
+    echo "      2.  To push tags, run: sh $PUSH_SCRIPT"
 fi
 
 }
@@ -379,12 +392,12 @@ echo " "
 
 confirm "Continue?" || die "Canceling release build."
 
-if [ -e $STAGING_DIR ]; then
+if [ -e $STAGING_DIR ] ; then
     set +o errexit
     confirm "$STAGING_DIR exists. Happy to remove it? (no to use existing directory to publish)"
     freshBuild=$?
     set -o errexit
-    if [ $freshBuild -eq 0 ]; then
+    if [ $freshBuild -eq 0 ] ; then
       rm -rf $STAGING_DIR
       cloneModules
       buildAndTest
